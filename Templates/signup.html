@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Login</title>
+  <title>Create Account</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
 
 <div style="max-width: 400px; margin: 5rem auto; padding: 2rem; border: 1px solid #ccc;">
-  <h2>Login</h2>
+  <h2>Create Account</h2>
 
   <form method="post">
     <label>Username:
@@ -20,7 +20,7 @@
       <input type="password" name="password" required>
     </label><br><br>
 
-    <button type="submit">Login</button>
+    <button type="submit">Create Account</button>
   </form>
 
   {% with messages = get_flashed_messages() %}
@@ -29,11 +29,8 @@
     {% endif %}
   {% endwith %}
 
-  <!-- THIS is the button you were asking for -->
   <div style="margin-top: 1rem;">
-    <a href="{{ url_for('signup') }}">
-      <button type="button">Create New Account</button>
-    </a>
+    <a href="{{ url_for('login') }}">Back to Login</a>
   </div>
 </div>
 

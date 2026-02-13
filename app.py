@@ -1,8 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from Extensions import db
-from Database import User, Resource, Employee, Event, Roster
+from Database import User, Resource, Employee, Event, Roster, Users
 from datetime import datetime
+from flask_login import login_required
+from functools import wraps
+from flask import abort
+
+
 
 def create_app():
     app = Flask(__name__)
@@ -33,6 +38,14 @@ def create_app():
     # LOGIN ROUTES
     # -------------------------
 
+    def admin_required(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if not current_user.is_authenticated or not current_user.is_admin:
+                abort(403)  # Forbidden
+            return f(*args, **kwargs)
+        return wrapper
+
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         if request.method == 'POST':
@@ -53,6 +66,28 @@ def create_app():
         logout_user()
         return redirect(url_for('login'))
 
+    @app.route('/signup', methods=['GET', 'POST'])
+    def signup():
+        if request.method == 'POST':
+            username = request.form['username']
+            password = request.form['password']
+
+            # Check if username exists
+            if User.query.filter_by(username=username).first():
+                flash("Username already exists")
+                return redirect(url_for('signup'))
+
+            new_user = User(username=username)
+            new_user.set_password(password)
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            flash("Account created successfully. You can now log in.")
+            return redirect(url_for('login'))
+
+        return render_template('signup.html')
+
     # -------------------------
     # PROTECTED ROUTES
     # -------------------------
@@ -67,6 +102,7 @@ def create_app():
 
     @app.route('/resources')
     @login_required
+    @admin_required
     def resources():
         resources = Resource.query.all()
         return render_template('resources.html', resources=resources)
@@ -104,6 +140,7 @@ def create_app():
 
     @app.route('/employees/new', methods=['POST'])
     @login_required
+    @admin_required
     def new_employee():
         name = request.form['name']
         age = int(request.form['age'])
@@ -124,6 +161,7 @@ def create_app():
 
     @app.route('/rosters/new', methods=['POST'])
     @login_required
+    @admin_required
     def new_roster():
         date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
         shift_name = request.form['shift_name']
@@ -150,6 +188,7 @@ def create_app():
 
     @app.route('/events/new', methods=['POST'])
     @login_required
+    @admin_required
     def new_event():
         title = request.form['title']
         location = request.form['location']
