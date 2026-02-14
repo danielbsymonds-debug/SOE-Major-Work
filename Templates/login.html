@@ -63,22 +63,17 @@
       position: relative;
       z-index: 1;
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
     }
 
-    .logo {
-      font-size: 3.5rem;
-      font-weight: 900;
-      color: #0a1929;
-      margin-bottom: 1rem;
-      letter-spacing: 0.15em;
-    }
-
-    .logo-subtitle {
-      color: rgba(10, 25, 41, 0.8);
-      font-size: 0.9rem;
-      font-weight: 600;
-      letter-spacing: 0.2em;
-      margin-bottom: 0.5rem;
+    .logo-image {
+      width: 200px;
+      height: 200px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
     }
 
     .logo-text {
