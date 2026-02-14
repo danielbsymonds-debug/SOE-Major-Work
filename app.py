@@ -105,22 +105,68 @@ def create_app():
     @login_required
     @admin_required
     def new_resource():
+        item_code = (request.form.get('item_code') or '').strip()
+
+        # log raw form for debugging
+        try:
+            app.logger.info('new_resource form data: %s', dict(request.form))
+        except Exception:
+            pass
+
+        # basic required validation
+        if not item_code:
+            flash('Item code is required.')
+            return redirect(url_for('resources'))
+
+        # Check if resource with this item_code already exists
+        existing_resource = Resource.query.filter_by(item_code=item_code).first()
+        if existing_resource:
+            flash(f"A resource with item code '{item_code}' already exists. Please use a different item code or edit the existing resource.")
+            return redirect(url_for('resources'))
+
+        # parse optional/numeric fields safely
+        try:
+            qty = int(request.form.get('qty') or 1)
+        except ValueError:
+            qty = 1
+
+        lifespan_raw = request.form.get('lifespan_years')
+        try:
+            lifespan = int(lifespan_raw) if lifespan_raw and lifespan_raw.strip() != '' else None
+        except ValueError:
+            lifespan = None
+
         dom = request.form.get('dom')
-        dom_date = datetime.strptime(dom, "%Y-%m-%d").date() if dom else None
+        try:
+            dom_date = datetime.strptime(dom, "%Y-%m-%d").date() if dom and dom.strip() != '' else None
+        except Exception:
+            dom_date = None
 
         r = Resource(
-            item_code=request.form['item_code'],
-            category=request.form['category'],
-            type=request.form['type'],
-            description=request.form['description'],
-            qty=int(request.form['qty']),
-            asset_number=request.form['asset_number'],
+            item_code=item_code,
+            category=(request.form.get('category') or '').strip(),
+            type=(request.form.get('type') or '').strip(),
+            description=(request.form.get('description') or '').strip(),
+            qty=qty,
+            asset_number=(request.form.get('asset_number') or '').strip(),
             dom=dom_date,
-            lifespan_years=int(request.form['lifespan_years'])
+            lifespan_years=lifespan
         )
         db.session.add(r)
-        db.session.commit()
-        return redirect(url_for('resources'))
+        try:
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            # handle unique constraint or other DB errors gracefully
+            from sqlalchemy.exc import IntegrityError
+            if isinstance(exc, IntegrityError) or (hasattr(exc, '__cause__') and isinstance(exc.__cause__, IntegrityError)):
+                flash(f"A database error occurred while creating resource '{item_code}': duplicate or constraint violation.")
+            else:
+                flash(f"An error occurred while creating resource: {str(exc)}")
+            return redirect(url_for('resources'))
+
+        flash(f"Resource '{item_code}' has been added successfully.")
+        return redirect(url_for('resource_detail', resource_id=r.id))
 
     # ---------------- ROSTERS ----------------
 

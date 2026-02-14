@@ -4,6 +4,15 @@
   <h2 class="page-title">Resources</h2>
 </div>
 
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div style="margin-bottom:1rem;">
+      {% for msg in messages %}
+        <div style="background: rgba(13,204,255,0.08); border:1px solid #2d3f4d; color:#b0bcc4; padding:0.75rem; border-radius:4px; margin-bottom:0.5rem;">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
 <!-- Filter Section -->
 <div class="filter-section">
   <div class="filter-row">
