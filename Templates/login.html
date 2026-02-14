@@ -69,11 +69,20 @@
       gap: 1.5rem;
     }
 
+    .logo-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px;
+      width: 100%;
+    }
+
     .logo-image {
-      width: 200px;
-      height: 200px;
+      max-width: 220px;
+      width: 100%;
+      height: auto;
       object-fit: contain;
-      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
     }
 
     .logo-text {
@@ -236,9 +245,10 @@
   <!-- Left Section -->
   <div class="auth-left">
     <div class="logo-section">
-      <div class="logo-subtitle">RISC</div>
-      <div class="logo">SAFE</div>
-      <p class="logo-text">Safety Consulting and Training</p>
+      <div class="logo-container">
+        <img src="{{ url_for('static', filename='images/RISC Safety logo.png') }}" class="logo-image" alt="RISC Safety Logo"/>
+      </div>
+      <p class="logo-text">Safety Consultation & Training</p>
     </div>
   </div>
 
