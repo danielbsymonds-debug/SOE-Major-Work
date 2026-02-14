@@ -1,24 +1,28 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from Extensions import db
-from Database import User, Resource, Employee, Event, Roster, Users
+from Database import User, Resource, Employee, Roster, Event
 from datetime import datetime
-from flask_login import login_required
 from functools import wraps
-from flask import abort
 
+def admin_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapper
 
 
 def create_app():
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rostering.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = 'change-me'
 
     db.init_app(app)
 
     login_manager = LoginManager()
-    login_manager.login_view = 'login'
+    login_manager.login_view = "login"
     login_manager.init_app(app)
 
     @login_manager.user_loader
@@ -27,196 +31,155 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        # Create default admin if none exists
-        if not User.query.first():
-            admin = User(username="admin")
-            admin.set_password("admin123")
+
+        # Create admin user if not exists
+        if not User.query.filter_by(username="admin").first():
+            admin = User(username="admin", is_admin=True)
+            admin.set_password("Admin123!")
             db.session.add(admin)
             db.session.commit()
 
-    # -------------------------
-    # LOGIN ROUTES
-    # -------------------------
-
-    def admin_required(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if not current_user.is_authenticated or not current_user.is_admin:
-                abort(403)  # Forbidden
-            return f(*args, **kwargs)
-        return wrapper
+    # ---------------- LOGIN ----------------
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
-
-            user = User.query.filter_by(username=username).first()
-            if user and user.check_password(password):
+            user = User.query.filter_by(username=request.form['username']).first()
+            if user and user.check_password(request.form['password']):
                 login_user(user)
                 return redirect(url_for('index'))
-            flash("Invalid username or password")
-
+            flash("Invalid credentials")
         return render_template('login.html')
-
-    @app.route('/logout')
-    @login_required
-    def logout():
-        logout_user()
-        return redirect(url_for('login'))
 
     @app.route('/signup', methods=['GET', 'POST'])
     def signup():
         if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
-
-            # Check if username exists
-            if User.query.filter_by(username=username).first():
+            if User.query.filter_by(username=request.form['username']).first():
                 flash("Username already exists")
                 return redirect(url_for('signup'))
 
-            new_user = User(username=username)
-            new_user.set_password(password)
-
-            db.session.add(new_user)
+            user = User(username=request.form['username'])
+            user.set_password(request.form['password'])
+            db.session.add(user)
             db.session.commit()
-
-            flash("Account created successfully. You can now log in.")
+            flash("Account created. Please log in.")
             return redirect(url_for('login'))
 
         return render_template('signup.html')
 
-    # -------------------------
-    # PROTECTED ROUTES
-    # -------------------------
+    @app.route('/logout')
+    def logout():
+        logout_user()
+        return redirect(url_for('login'))
+
+    # ---------------- DASHBOARD ----------------
 
     @app.route('/')
     @login_required
     def index():
-        upcoming_events = Event.query.order_by(Event.start_time.asc()).limit(5).all()
-        available_resources = Resource.query.filter_by(in_use=False).all()
+        events = Event.query.all()
+        resources = Resource.query.all()
         employees = Employee.query.all()
-        return render_template('index.html', events=upcoming_events, resources=available_resources, employees=employees)
+        return render_template('index.html', events=events, resources=resources, employees=employees)
+
+    # ---------------- RESOURCES ----------------
 
     @app.route('/resources')
     @login_required
-    @admin_required
     def resources():
-        resources = Resource.query.all()
-        return render_template('resources.html', resources=resources)
+        return render_template('resources.html', resources=Resource.query.all())
 
     @app.route('/resources/new', methods=['POST'])
     @login_required
+    @admin_required
     def new_resource():
-        serial_number = request.form['serial_number']
-        expiration_date = request.form.get('expiration_date') or None
-        perishable = bool(request.form.get('perishable'))
-        condition = request.form.get('condition', 'Good')
-        in_use = bool(request.form.get('in_use'))
-
-        exp_date_obj = None
-        if expiration_date:
-            exp_date_obj = datetime.strptime(expiration_date, '%Y-%m-%d').date()
+        dom = request.form.get('dom')
+        dom_date = datetime.strptime(dom, "%Y-%m-%d").date() if dom else None
 
         r = Resource(
-            serial_number=serial_number,
-            expiration_date=exp_date_obj,
-            perishable=perishable,
-            condition=condition,
-            in_use=in_use
+            item_code=request.form['item_code'],
+            category=request.form['category'],
+            type=request.form['type'],
+            description=request.form['description'],
+            qty=int(request.form['qty']),
+            asset_number=request.form['asset_number'],
+            dom=dom_date,
+            lifespan_years=int(request.form['lifespan_years'])
         )
         db.session.add(r)
         db.session.commit()
         return redirect(url_for('resources'))
 
+    # ---------------- ROSTERS ----------------
+
     @app.route('/rosters')
     @login_required
     def rosters():
-        rosters = Roster.query.order_by(Roster.date.desc()).all()
-        employees = Employee.query.all()
-        return render_template('rosters.html', rosters=rosters, employees=employees)
-
-    @app.route('/employees/new', methods=['POST'])
-    @login_required
-    @admin_required
-    def new_employee():
-        name = request.form['name']
-        age = int(request.form['age'])
-        experience_years = int(request.form.get('experience_years', 0))
-        level_of_training = request.form['level_of_training']
-        training_status = request.form.get('training_status', 'Not Trained')
-
-        e = Employee(
-            name=name,
-            age=age,
-            experience_years=experience_years,
-            level_of_training=level_of_training,
-            training_status=training_status
-        )
-        db.session.add(e)
-        db.session.commit()
-        return redirect(url_for('rosters'))
+        return render_template('rosters.html', rosters=Roster.query.all(), employees=Employee.query.all())
 
     @app.route('/rosters/new', methods=['POST'])
     @login_required
     @admin_required
     def new_roster():
-        date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        shift_name = request.form['shift_name']
-        employee_id = int(request.form['employee_id'])
-        job_description = request.form.get('job_description')
-
         r = Roster(
-            date=date,
-            shift_name=shift_name,
-            employee_id=employee_id,
-            job_description=job_description
+            date=datetime.strptime(request.form['date'], "%Y-%m-%d").date(),
+            shift_name=request.form['shift_name'],
+            employee_id=int(request.form['employee_id']),
+            job_description=request.form['job_description']
         )
         db.session.add(r)
         db.session.commit()
         return redirect(url_for('rosters'))
 
+    @app.route('/employees/new', methods=['POST'])
+    @login_required
+    @admin_required
+    def new_employee():
+        emp = Employee(
+            name=request.form['name'],
+            age=int(request.form['age']) if request.form.get('age') else None,
+            experience_years=int(request.form.get('experience_years') or 0),
+            level_of_training=request.form.get('level_of_training'),
+            training_status=request.form.get('training_status') or 'Not Trained'
+        )
+        db.session.add(emp)
+        db.session.commit()
+        return redirect(url_for('rosters'))
+
+    # ---------------- EVENTS ----------------
+
     @app.route('/events')
     @login_required
     def events():
-        events = Event.query.order_by(Event.start_time.desc()).all()
-        employees = Employee.query.all()
-        resources = Resource.query.all()
-        return render_template('events.html', events=events, employees=employees, resources=resources)
+        return render_template('events.html',
+                               events=Event.query.all(),
+                               employees=Employee.query.all(),
+                               resources=Resource.query.all())
 
     @app.route('/events/new', methods=['POST'])
     @login_required
     @admin_required
     def new_event():
-        title = request.form['title']
-        location = request.form['location']
-        start_time = datetime.strptime(request.form['start_time'], '%Y-%m-%dT%H:%M')
-        end_time = datetime.strptime(request.form['end_time'], '%Y-%m-%dT%H:%M')
+        e = Event(
+            title=request.form['title'],
+            location=request.form['location'],
+            start_time=datetime.strptime(request.form['start_time'], "%Y-%m-%dT%H:%M"),
+            end_time=datetime.strptime(request.form['end_time'], "%Y-%m-%dT%H:%M")
+        )
 
-        event = Event(title=title, location=location, start_time=start_time, end_time=end_time)
+        for emp_id in request.form.getlist('employee_ids'):
+            e.employees.append(Employee.query.get(int(emp_id)))
 
-        employee_ids = request.form.getlist('employee_ids')
-        resource_ids = request.form.getlist('resource_ids')
+        for res_id in request.form.getlist('resource_ids'):
+            e.resources.append(Resource.query.get(int(res_id)))
 
-        for eid in employee_ids:
-            emp = Employee.query.get(int(eid))
-            if emp:
-                event.employees.append(emp)
-
-        for rid in resource_ids:
-            res = Resource.query.get(int(rid))
-            if res:
-                event.resources.append(res)
-                res.in_use = True
-
-        db.session.add(event)
+        db.session.add(e)
         db.session.commit()
         return redirect(url_for('events'))
 
     return app
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
