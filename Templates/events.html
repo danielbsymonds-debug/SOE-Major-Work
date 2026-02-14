@@ -48,35 +48,45 @@
     <div>
       {% for e in events %}
       <div style="background: #2d3f4d; border-left: 4px solid #0dccff; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#3a4f5f'" onmouseout="this.style.background='#2d3f4d'">
-        <div style="font-weight: 600; color: #0dccff; font-size: 0.95rem;">{{ e.title }}</div>
-        <div style="color: #b0bcc4; font-size: 0.85rem; margin-top: 0.5rem;">
-          📍 {{ e.location }}
-        </div>
-        <div style="color: #b0bcc4; font-size: 0.85rem; margin-top: 0.25rem;">
-          🕒 {{ e.start_time.strftime('%b %d, %H:%M') }} → {{ e.end_time.strftime('%H:%M') }}
-        </div>
-        
-        {% if e.employees %}
-        <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #2d3f4d;">
-          <div style="color: #6b7982; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.35rem;">Assigned Staff:</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-            {% for emp in e.employees %}
-            <span style="background: rgba(13, 204, 255, 0.2); color: #0dccff; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.8rem;">{{ emp.name }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: #0dccff; font-size: 0.95rem;">{{ e.title }}</div>
+            <div style="color: #b0bcc4; font-size: 0.85rem; margin-top: 0.5rem;">
+              📍 {{ e.location }}
+            </div>
+            <div style="color: #b0bcc4; font-size: 0.85rem; margin-top: 0.25rem;">
+              🕒 {{ e.start_time.strftime('%b %d, %H:%M') }} → {{ e.end_time.strftime('%H:%M') }}
+            </div>
+            
+            {% if e.employees %}
+            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #2d3f4d;">
+              <div style="color: #6b7982; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.35rem;">Assigned Staff:</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                {% for emp in e.employees %}
+                <span style="background: rgba(13, 204, 255, 0.2); color: #0dccff; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.8rem;">{{ emp.name }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
 
-        {% if e.resources %}
-        <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #2d3f4d;">
-          <div style="color: #6b7982; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.35rem;">Resources:</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-            {% for res in e.resources %}
-            <span style="background: rgba(76, 175, 80, 0.2); color: #4caf50; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.8rem;">{{ res.item_code }}</span>
-            {% endfor %}
+            {% if e.resources %}
+            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #2d3f4d;">
+              <div style="color: #6b7982; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.35rem;">Resources:</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                {% for res in e.resources %}
+                <span style="background: rgba(76, 175, 80, 0.2); color: #4caf50; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.8rem;">{{ res.item_code }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
           </div>
+          {% if current_user.is_admin %}
+          <div style="display: flex; gap: 0.5rem; margin-left: 1rem;">
+            <button class="btn btn-secondary" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; white-space: nowrap;">Edit</button>
+            <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; color: #ff6b6b; border-color: #ff6b6b; white-space: nowrap;" onclick="confirmDeleteEvent('{{ e.id }}')">Delete</button>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
       </div>
       {% else %}
       <div style="text-align: center; padding: 2rem; color: #6b7982;">
@@ -154,6 +164,16 @@
 
   function closeCreateEventForm() {
     document.getElementById('createEventModal').style.display = 'none';
+  }
+
+  function confirmDeleteEvent(eventId) {
+    if (confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `/events/${eventId}/delete`;
+      document.body.appendChild(form);
+      form.submit();
+    }
   }
 
   // Close modal when clicking outside

@@ -1,17 +1,257 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Users</h2>
-<table>
-  <thead>
-    <tr><th>Username</th><th>Admin</th></tr>
-  </thead>
-  <tbody>
-    {% for u in users %}
-    <tr>
-      <td>{{ u.username }}</td>
-      <td>{{ 'Yes' if u.is_admin else 'No' }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+
+<style>
+  .page-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: #0dccff;
+  }
+
+  .users-count {
+    font-size: 0.9rem;
+    color: #b0bcc4;
+    background: #232f3a;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+  }
+
+  .table-wrapper {
+    background: #232f3a;
+    border: 1px solid #2d3f4d;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table thead {
+    background: #1a252f;
+    border-bottom: 1px solid #2d3f4d;
+  }
+
+  table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #b0bcc4;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  table td {
+    padding: 1rem;
+    border-bottom: 1px solid #2d3f4d;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+  }
+
+  table tbody tr {
+    transition: background 0.15s;
+  }
+
+  table tbody tr:hover {
+    background: #2d3f4d;
+  }
+
+  table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .admin-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    background: rgba(13, 204, 255, 0.2);
+    color: #0dccff;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .user-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    background: rgba(176, 188, 196, 0.2);
+    color: #b0bcc4;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .actions-cell {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .btn-action {
+    padding: 0.5rem 0.85rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .btn-promote {
+    background: #0dccff;
+    color: #0a1929;
+  }
+
+  .btn-promote:hover {
+    background: #0ab8db;
+  }
+
+  .btn-demote {
+    background: rgba(13, 204, 255, 0.2);
+    color: #0dccff;
+    border: 1px solid #0dccff;
+  }
+
+  .btn-demote:hover {
+    background: rgba(13, 204, 255, 0.3);
+  }
+
+  .btn-delete {
+    background: rgba(255, 76, 76, 0.2);
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b;
+  }
+
+  .btn-delete:hover {
+    background: rgba(255, 76, 76, 0.3);
+  }
+
+  .empty-state {
+    background: #232f3a;
+    border: 1px solid #2d3f4d;
+    border-radius: 4px;
+    padding: 2rem;
+    text-align: center;
+    color: #b0bcc4;
+  }
+</style>
+
+<div class="page-container">
+  <h2 class="page-title">Users Management</h2>
+  <span class="users-count">{{ users|length }} users</span>
+</div>
+
+{% if users %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td>
+              <strong>{{ u.username }}</strong>
+            </td>
+            <td>
+              {% if u.is_admin %}
+                <span class="admin-badge">👤 Administrator</span>
+              {% else %}
+                <span class="user-badge">User</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions-cell" style="justify-content: flex-end;">
+                {% if u.id != current_user.id %}
+                  {% if u.is_admin %}
+                    <form method="post" style="display: inline;">
+                      <button type="button" class="btn-action btn-demote" data-username="{{ u.username }}" data-user-id="{{ u.id }}" onclick="confirmDemote(this)">
+                        ⬇ Demote
+                      </button>
+                      <input type="hidden" name="action" value="demote">
+                      <input type="hidden" id="demote-form-{{ u.id }}" style="display: none;" value="{{ url_for('demote_user', user_id=u.id) }}">
+                    </form>
+                  {% else %}
+                    <form method="post" style="display: inline;">
+                      <button type="button" class="btn-action btn-promote" data-username="{{ u.username }}" data-user-id="{{ u.id }}" onclick="confirmPromote(this)">
+                        ⬆ Promote
+                      </button>
+                      <input type="hidden" name="action" value="promote">
+                      <input type="hidden" id="promote-form-{{ u.id }}" style="display: none;" value="{{ url_for('promote_user', user_id=u.id) }}">
+                    </form>
+                  {% endif %}
+                  <button type="button" class="btn-action btn-delete" data-username="{{ u.username }}" data-user-id="{{ u.id }}" onclick="confirmDelete(this)">
+                    🗑 Delete
+                  </button>
+                {% else %}
+                  <span style="color: #b0bcc4; font-size: 0.85rem;">Current User</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty-state">
+    <p>No users found.</p>
+  </div>
+{% endif %}
+
+<script>
+  function confirmDelete(button) {
+    const username = button.dataset.username;
+    const userId = button.dataset.userId;
+    if (confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{{ url_for("delete_user", user_id=0) }}'.replace('/0', '/' + userId);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+
+  function confirmPromote(button) {
+    const username = button.dataset.username;
+    const userId = button.dataset.userId;
+    if (confirm(`Promote "${username}" to Administrator? They will have access to all admin features.`)) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{{ url_for("promote_user", user_id=0) }}'.replace('/0', '/' + userId);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+
+  function confirmDemote(button) {
+    const username = button.dataset.username;
+    const userId = button.dataset.userId;
+    if (confirm(`Demote "${username}" from Administrator? They will lose admin privileges.`)) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{{ url_for("demote_user", user_id=0) }}'.replace('/0', '/' + userId);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+</script>
+
 {% endblock %}

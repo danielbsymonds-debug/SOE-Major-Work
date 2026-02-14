@@ -1,47 +1,131 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Rosters</h2>
+<div class="page-header">
+  <h2 class="page-title">Rosters</h2>
+</div>
 
-{% if current_user.is_admin %}
-<h3>Add Roster Entry</h3>
-<form method="post" action="{{ url_for('new_roster') }}">
-  <label>Date: <input type="date" name="date" required></label><br>
-  <label>Shift Name: <input name="shift_name" required></label><br>
+<!-- Top Controls -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding: 0 0.5rem;">
+  <h3 style="color: #e0e0e0; margin: 0;">Staff Schedule</h3>
+  
+  <div style="display: flex; gap: 1rem;">
+    {% if current_user.is_admin %}
+    <button class="btn btn-primary" onclick="openAddRosterForm()">+ Add Roster Entry</button>
+    {% endif %}
+    <a href="{{ url_for('employees_overview') }}" style="text-decoration: none;">
+      <button class="btn btn-secondary">👥 Employee Management</button>
+    </a>
+  </div>
+</div>
 
-  <label>Employee:
-    <select name="employee_id">
+<!-- Main Container -->
+<div class="table-wrapper" style="padding: 1.5rem; min-height: 600px;">
+  <div style="display: grid; grid-template-columns: 200px 1fr; gap: 2rem;">
+    
+    <!-- Employee List (Left Sidebar) -->
+    <div>
+      <div style="color: #b0bcc4; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1rem; font-weight: 600;">Employees</div>
       {% for emp in employees %}
-        <option value="{{ emp.id }}">{{ emp.name }}</option>
+      <a href="{{ url_for('employee_detail', employee_id=emp.id) }}" style="text-decoration: none;">
+        <div style="display: flex; align-items: center; margin-bottom: 1rem; padding: 1rem; background: #232f3a; border: 1px solid #2d3f4d; border-radius: 4px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#2d3f4d'" onmouseout="this.style.background='#232f3a'">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #0dccff; display: flex; align-items: center; justify-content: center; color: #0a1929; font-weight: 600; font-size: 0.85rem; margin-right: 0.75rem;">{{ emp.name[:1] }}</div>
+          <div>
+            <div style="font-weight: 500; color: #e0e0e0; font-size: 0.9rem;">{{ emp.name }}</div>
+            <div style="color: #6b7982; font-size: 0.8rem;">{{ emp.level_of_training or 'Staff' }}</div>
+          </div>
+        </div>
+      </a>
       {% endfor %}
-    </select>
-  </label><br>
+    </div>
 
-  <label>Job Description: <input name="job_description"></label><br>
+    <!-- Rosters List (Right Content) -->
+    <div>
+      <div style="color: #b0bcc4; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1rem; font-weight: 600;">Roster Schedule (<span id="rosterCount">{{ rosters|length }}</span>)</div>
+      
+      {% for r in rosters %}
+      <div style="background: #232f3a; border-left: 4px solid #0dccff; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.background='#2d3f4d'" onmouseout="this.style.background='#232f3a'">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: #e0e0e0; font-size: 0.95rem;">{{ r.employee.name }}</div>
+            <div style="color: #b0bcc4; font-size: 0.85rem; margin-top: 0.25rem;">
+              📅 {{ r.date.strftime('%b %d, %Y') }} — <span style="color: #0dccff;">{{ r.shift_name }}</span>
+            </div>
+            {% if r.job_description %}
+            <div style="color: #b0bcc4; font-size: 0.85rem; margin-top: 0.5rem;">
+              📋 {{ r.job_description }}
+            </div>
+            {% endif %}
+          </div>
+          {% if current_user.is_admin %}
+          <button class="btn btn-secondary" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; margin-left: 1rem;">Edit</button>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div style="text-align: center; padding: 2rem; color: #6b7982;">
+        <p>No rosters scheduled. {% if current_user.is_admin %}<button class="btn btn-primary" onclick="openAddRosterForm()" style="margin-top: 1rem;">Create one now</button>{% endif %}</p>
+      </div>
+      {% endfor %}
+    </div>
 
-  <button type="submit">Add Roster</button>
-</form>
+  </div>
+</div>
+
+<!-- Add Roster Modal (Admin Only) -->
+{% if current_user.is_admin %}
+<div id="addRosterModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; display: none;">
+  <div style="background: #232f3a; border: 1px solid #2d3f4d; border-radius: 8px; padding: 2rem; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;">
+    <h3 style="color: #0dccff; margin-bottom: 1.5rem;">Add Roster Entry</h3>
+    <form method="post" action="{{ url_for('new_roster') }}">
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Date *</label>
+        <input type="date" name="date" required style="width: 100%; padding: 0.65rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Shift Name *</label>
+        <input type="text" name="shift_name" required style="width: 100%; padding: 0.65rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Employee *</label>
+        <select name="employee_id" required style="width: 100%; padding: 0.65rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+          <option value="" disabled selected>Select an employee</option>
+          {% for emp in employees %}
+          <option value="{{ emp.id }}">{{ emp.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="margin-bottom: 2rem;">
+        <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Job Description</label>
+        <input type="text" name="job_description" style="width: 100%; padding: 0.65rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+      </div>
+
+      <div style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #2d3f4d;">
+        <button type="button" class="btn btn-secondary" onclick="closeAddRosterForm()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Roster Entry</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openAddRosterForm() {
+    document.getElementById('addRosterModal').style.display = 'flex';
+  }
+
+  function closeAddRosterForm() {
+    document.getElementById('addRosterModal').style.display = 'none';
+  }
+
+  document.getElementById('addRosterModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      closeAddRosterForm();
+    }
+  });
+</script>
 {% endif %}
-
-<table>
-  <thead>
-    <tr>
-      <th>Date</th>
-      <th>Shift</th>
-      <th>Employee</th>
-      <th>Job</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in rosters %}
-    <tr>
-      <td>{{ r.date }}</td>
-      <td>{{ r.shift_name }}</td>
-      <td>{{ r.employee.name }}</td>
-      <td>{{ r.job_description }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
 
 {% endblock %}

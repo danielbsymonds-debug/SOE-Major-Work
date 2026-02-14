@@ -129,19 +129,25 @@ def create_app():
     def rosters():
         return render_template('rosters.html', rosters=Roster.query.all(), employees=Employee.query.all())
 
-    @app.route('/rosters/new', methods=['POST'])
+    @app.route('/employees')
+    @login_required
+    def employees_overview():
+        return render_template('employees_overview.html', employees=Employee.query.all())
+
+    @app.route('/employees/<int:employee_id>')
+    @login_required
+    def employee_detail(employee_id):
+        employee = Employee.query.get_or_404(employee_id)
+        return render_template('employee_detail.html', employee=employee)
+
+    @app.route('/employees/<int:employee_id>/delete', methods=['POST'])
     @login_required
     @admin_required
-    def new_roster():
-        r = Roster(
-            date=datetime.strptime(request.form['date'], "%Y-%m-%d").date(),
-            shift_name=request.form['shift_name'],
-            employee_id=int(request.form['employee_id']),
-            job_description=request.form['job_description']
-        )
-        db.session.add(r)
+    def delete_employee(employee_id):
+        employee = Employee.query.get_or_404(employee_id)
+        db.session.delete(employee)
         db.session.commit()
-        return redirect(url_for('rosters'))
+        return redirect(url_for('employees_overview'))
 
     @app.route('/employees/new', methods=['POST'])
     @login_required
@@ -155,6 +161,20 @@ def create_app():
             training_status=request.form.get('training_status') or 'Not Trained'
         )
         db.session.add(emp)
+        db.session.commit()
+        return redirect(url_for('employees_overview'))
+
+    @app.route('/rosters/new', methods=['POST'])
+    @login_required
+    @admin_required
+    def new_roster():
+        r = Roster(
+            date=datetime.strptime(request.form['date'], "%Y-%m-%d").date(),
+            shift_name=request.form['shift_name'],
+            employee_id=int(request.form['employee_id']),
+            job_description=request.form['job_description']
+        )
+        db.session.add(r)
         db.session.commit()
         return redirect(url_for('rosters'))
 
@@ -188,6 +208,56 @@ def create_app():
         db.session.add(e)
         db.session.commit()
         return redirect(url_for('events'))
+
+    @app.route('/events/<int:event_id>/delete', methods=['POST'])
+    @login_required
+    @admin_required
+    def delete_event(event_id):
+        event = Event.query.get_or_404(event_id)
+        db.session.delete(event)
+        db.session.commit()
+        return redirect(url_for('events'))
+
+    # ---------- USER MANAGEMENT ----------
+
+    @app.route('/users/<int:user_id>/delete', methods=['POST'])
+    @login_required
+    @admin_required
+    def delete_user(user_id):
+        if user_id == current_user.id:
+            flash("You cannot delete your own account.")
+            return redirect(url_for('users'))
+        user = User.query.get_or_404(user_id)
+        db.session.delete(user)
+        db.session.commit()
+        flash(f"User {user.username} has been deleted.")
+        return redirect(url_for('users'))
+
+    @app.route('/users/<int:user_id>/promote', methods=['POST'])
+    @login_required
+    @admin_required
+    def promote_user(user_id):
+        user = User.query.get_or_404(user_id)
+        if user.is_admin:
+            flash(f"{user.username} is already an administrator.")
+        else:
+            user.is_admin = True
+            db.session.commit()
+            flash(f"{user.username} has been promoted to Administrator.")
+        return redirect(url_for('users'))
+
+    @app.route('/users/<int:user_id>/demote', methods=['POST'])
+    @login_required
+    @admin_required
+    def demote_user(user_id):
+        user = User.query.get_or_404(user_id)
+        if not user.is_admin:
+            flash(f"{user.username} is not an administrator.")
+        else:
+            user.is_admin = False
+            db.session.commit()
+            flash(f"{user.username} has been demoted from Administrator.")
+        return redirect(url_for('users'))
 
     return app
 

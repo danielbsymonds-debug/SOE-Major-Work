@@ -2,36 +2,287 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Login</title>
+  <title>Login - Rostering & Resource System</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: '72', 'SAP Sans', system-ui, sans-serif;
+      background: #1e2a37;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    .auth-container {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    .auth-left {
+      flex: 1;
+      background: linear-gradient(135deg, #0dccff 0%, #0099cc 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .auth-left::before {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      top: -100px;
+      left: -100px;
+    }
+
+    .auth-left::after {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      bottom: -50px;
+      right: -50px;
+    }
+
+    .logo-section {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: #0a1929;
+      margin-bottom: 1rem;
+      letter-spacing: 0.15em;
+    }
+
+    .logo-subtitle {
+      color: rgba(10, 25, 41, 0.8);
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      margin-bottom: 0.5rem;
+    }
+
+    .logo-text {
+      color: #0a1929;
+      font-size: 1.1rem;
+      font-weight: 500;
+      max-width: 250px;
+      line-height: 1.6;
+    }
+
+    .auth-right {
+      flex: 1;
+      background: #1a252f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .auth-form-wrapper {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .auth-form-header {
+      margin-bottom: 2.5rem;
+      text-align: center;
+    }
+
+    .auth-form-header h2 {
+      font-size: 2rem;
+      color: #e0e0e0;
+      margin-bottom: 0.5rem;
+    }
+
+    .auth-form-header p {
+      color: #b0bcc4;
+      font-size: 0.95rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      color: #b0bcc4;
+      font-size: 0.85rem;
+      margin-bottom: 0.65rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.85rem;
+      background: #232f3a;
+      border: 1px solid #2d3f4d;
+      color: #e0e0e0;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #0dccff;
+      box-shadow: 0 0 0 3px rgba(13, 204, 255, 0.1);
+      background: #2a3849;
+    }
+
+    .form-group input::placeholder {
+      color: #6b7982;
+    }
+
+    .error-message {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid #ff6b6b;
+      color: #ff9999;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 0.9rem;
+      background: #0dccff;
+      color: #0a1929;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 1rem;
+    }
+
+    .btn-login:hover {
+      background: #0ab8db;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(13, 204, 255, 0.3);
+    }
+
+    .auth-footer {
+      margin-top: 2rem;
+      text-align: center;
+      border-top: 1px solid #2d3f4d;
+      padding-top: 1.5rem;
+    }
+
+    .auth-footer p {
+      color: #b0bcc4;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn-secondary-auth {
+      width: 100%;
+      padding: 0.85rem;
+      background: transparent;
+      color: #0dccff;
+      border: 1.5px solid #0dccff;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-secondary-auth:hover {
+      background: rgba(13, 204, 255, 0.1);
+    }
+
+    @media (max-width: 768px) {
+      .auth-container {
+        flex-direction: column;
+      }
+
+      .auth-left {
+        min-height: 250px;
+      }
+
+      .auth-right {
+        padding: 2rem 1.5rem;
+      }
+
+      .auth-form-wrapper {
+        max-width: 100%;
+      }
+    }
+  </style>
 </head>
 
 <body>
-<div class="form-container">
-  <h2>Login</h2>
+<div class="auth-container">
+  <!-- Left Section -->
+  <div class="auth-left">
+    <div class="logo-section">
+      <div class="logo-subtitle">RISC</div>
+      <div class="logo">SAFE</div>
+      <p class="logo-text">Safety Consulting and Training</p>
+    </div>
+  </div>
 
-  <form method="post">
-    <label>Username:
-      <input name="username" required>
-    </label><br>
+  <!-- Right Section -->
+  <div class="auth-right">
+    <div class="auth-form-wrapper">
+      <div class="auth-form-header">
+        <h2>Sign in</h2>
+        <p>Welcome back to the system</p>
+      </div>
 
-    <label>Password:
-      <input type="password" name="password" required>
-    </label><br>
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="error-message">{{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
 
-    <button type="submit">Login</button>
-  </form>
+      <form method="post">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Enter your username" required>
+        </div>
 
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <p class="error">{{ messages[0] }}</p>
-    {% endif %}
-  {% endwith %}
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        </div>
 
-  <a href="{{ url_for('signup') }}">
-    <button>Create New Account</button>
-  </a>
+        <button type="submit" class="btn-login">Sign In</button>
+      </form>
+
+      <div class="auth-footer">
+        <p>Not a member?</p>
+        <a href="{{ url_for('signup') }}" style="text-decoration: none;">
+          <button class="btn-secondary-auth">Create Account</button>
+        </a>
+      </div>
+    </div>
+  </div>
 </div>
 </body>
 </html>
