@@ -3,6 +3,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from Extensions import db
 from Database import User, Resource, Employee, Roster, Event, ResourcePreset
 from datetime import datetime
+from sqlalchemy.exc import OperationalError
 from functools import wraps
 
 def admin_required(f):
@@ -31,13 +32,32 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        # Ensure certain columns exist in SQLite DB (helpful when evolving schema without migrations)
+        def ensure_column(table, column, add_sql):
+            try:
+                res = db.session.execute(f"PRAGMA table_info('{table}')").fetchall()
+                existing = [r[1] for r in res]
+                if column not in existing:
+                    db.session.execute(add_sql)
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
 
-        # Create admin user if not exists
-        if not User.query.filter_by(username="admin").first():
-            admin = User(username="admin", is_admin=True)
-            admin.set_password("Admin123!")
-            db.session.add(admin)
-            db.session.commit()
+        # Add user.employee_id, event.setup_minutes, event.packup_minutes if missing
+        ensure_column('user', 'employee_id', "ALTER TABLE user ADD COLUMN employee_id INTEGER")
+        ensure_column('event', 'setup_minutes', "ALTER TABLE event ADD COLUMN setup_minutes INTEGER DEFAULT 0")
+        ensure_column('event', 'packup_minutes', "ALTER TABLE event ADD COLUMN packup_minutes INTEGER DEFAULT 0")
+
+        # Create admin user if not exists; if schema is out of sync, raise error (do NOT drop data)
+        try:
+            if not User.query.filter_by(username="admin").first():
+                admin = User(username="admin", is_admin=True)
+                admin.set_password("Admin123!")
+                db.session.add(admin)
+                db.session.commit()
+        except OperationalError as e:
+            # Do NOT drop tables or recreate DB. Instead, raise a clear error.
+            raise RuntimeError("Database schema is out of sync with models. Please run a migration or add missing columns manually. No data was deleted.") from e
 
     # ---------------- LOGIN ----------------
 
@@ -227,10 +247,23 @@ def create_app():
     @app.route('/rosters')
     @login_required
     def rosters():
-        return render_template('rosters.html', rosters=Roster.query.all(), employees=Employee.query.all())
+        if current_user.is_admin:
+            rosters_q = Roster.query.all()
+            employees_q = Employee.query.all()
+        else:
+            # non-admins only see rosters where they are the appointed employee
+            if getattr(current_user, 'employee', None):
+                emp = current_user.employee
+                rosters_q = Roster.query.filter_by(employee_id=emp.id).all()
+                employees_q = [emp]
+            else:
+                rosters_q = []
+                employees_q = []
+        return render_template('rosters.html', rosters=rosters_q, employees=employees_q)
 
     @app.route('/employees')
     @login_required
+    @admin_required
     def employees_overview():
         return render_template('employees_overview.html', employees=Employee.query.all())
 
@@ -293,9 +326,21 @@ def create_app():
     @login_required
     @admin_required
     def new_event():
+        # parse setup/packup (minutes) and event times
+        try:
+            setup_minutes = int(request.form.get('setup_minutes') or 0)
+        except ValueError:
+            setup_minutes = 0
+        try:
+            packup_minutes = int(request.form.get('packup_minutes') or 0)
+        except ValueError:
+            packup_minutes = 0
+
         e = Event(
             title=request.form['title'],
             location=request.form['location'],
+            setup_minutes=setup_minutes,
+            packup_minutes=packup_minutes,
             start_time=datetime.strptime(request.form['start_time'], "%Y-%m-%dT%H:%M"),
             end_time=datetime.strptime(request.form['end_time'], "%Y-%m-%dT%H:%M")
         )

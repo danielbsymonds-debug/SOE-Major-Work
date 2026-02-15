@@ -40,6 +40,7 @@
         <th>Experience (Years)</th>
         <th>Level of Training</th>
         <th>Training Status</th>
+        <th>Qualifications</th>
         <th style="width: 120px;">Actions</th>
       </tr>
     </thead>
@@ -54,6 +55,17 @@
         <td>{{ emp.experience_years or '-' }}</td>
         <td>{{ emp.level_of_training or '-' }}</td>
         <td>{{ emp.training_status or 'Not Trained' }}</td>
+        <td>
+          <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
+            {% for q in emp.qualifications %}
+              <div style="background: rgba(13, 204, 255, 0.08); color:#9de6ff; padding:0.2rem 0.4rem; border-radius:3px; font-size:0.75rem;">
+                {{ q.name }}<br><small style="color:#6b7982;">{{ q.attained_date and q.attained_date.strftime('%Y-%m-%d') or '-' }} → {{ q.expires_date and q.expires_date.strftime('%Y-%m-%d') or '-' }}</small>
+              </div>
+            {% else %}
+              <div style="color:#6b7982; font-size:0.85rem;">—</div>
+            {% endfor %}
+          </div>
+        </td>
         <td style="text-align: center;">
           <a href="{{ url_for('employee_detail', employee_id=emp.id) }}" style="text-decoration: none;">
             <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">View</button>

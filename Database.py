@@ -8,6 +8,11 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    # optional link from a login account to an Employee record
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'))
+
+    # relationship to Employee (if the user represents an employee)
+    employee = db.relationship('Employee', backref='user', uselist=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -35,6 +40,8 @@ class Employee(db.Model):
     experience_years = db.Column(db.Integer)
     level_of_training = db.Column(db.String(120))
     training_status = db.Column(db.String(120))
+    # Qualifications relationship (Qualification rows store attained and expiry dates)
+    qualifications = db.relationship('Qualification', backref='employee', cascade='all, delete-orphan')
 
 
 class Roster(db.Model):
@@ -65,6 +72,9 @@ class Event(db.Model):
     location = db.Column(db.String(200))
     start_time = db.Column(db.DateTime)
     end_time = db.Column(db.DateTime)
+    # setup and packup in minutes
+    setup_minutes = db.Column(db.Integer, default=0)
+    packup_minutes = db.Column(db.Integer, default=0)
 
     employees = db.relationship("Employee", secondary=event_employee)
     resources = db.relationship("Resource", secondary=event_resource)
@@ -87,3 +97,15 @@ class ResourcePreset(db.Model):
 
     def __repr__(self):
         return f"<ResourcePreset {self.name}>"
+
+
+# Qualifications table for employees
+class Qualification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    name = db.Column(db.String(140), nullable=False)
+    attained_date = db.Column(db.Date)
+    expires_date = db.Column(db.Date)
+
+    def __repr__(self):
+        return f"<Qualification {self.name} for employee {self.employee_id}>"

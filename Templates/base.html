@@ -17,6 +17,9 @@
     <a href="{{ url_for('index') }}">Dashboard</a>
     <a href="{{ url_for('resources') }}">Resources</a>
     <a href="{{ url_for('rosters') }}">Rosters</a>
+    {% if current_user.is_admin %}
+      <a href="{{ url_for('employees_overview') }}">Employees</a>
+    {% endif %}
     <a href="{{ url_for('events') }}">Events</a>
 
     {% if current_user.is_admin %}

@@ -103,7 +103,7 @@
 {% if current_user.is_admin %}
 <div id="createEventModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; display: none;">
   <div style="background: #232f3a; border: 1px solid #2d3f4d; border-radius: 8px; padding: 2rem; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;">
-    <h3 style="color: #0dccff; margin-bottom: 1.5rem;">Create New Event</h3>
+    <h3 style="color: #0dccff; margin-bottom: 1.5rem;">Create</h3>
     <form method="post" action="{{ url_for('new_event') }}">
       <div style="margin-bottom: 1rem;">
         <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Event Title *</label>
@@ -113,6 +113,17 @@
       <div style="margin-bottom: 1rem;">
         <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Location *</label>
         <input type="text" name="location" required style="width: 100%; padding: 0.65rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Setup Time (minutes)</label>
+          <input type="number" name="setup_minutes" min="0" value="0" style="width: 100%; padding: 0.45rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+        </div>
+        <div>
+          <label style="display: block; color: #b0bcc4; margin-bottom: 0.5rem;">Packup Time (minutes)</label>
+          <input type="number" name="packup_minutes" min="0" value="0" style="width: 100%; padding: 0.45rem; background: #1a252f; border: 1px solid #2d3f4d; color: #e0e0e0; border-radius: 4px;">
+        </div>
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -148,7 +159,7 @@
             <select name="preset_id" id="presetSelect" style="width:100%; padding:0.5rem; background:#1a252f; border:1px solid #2d3f4d; color:#e0e0e0; border-radius:4px;" onchange="applyPreset(this.value)">
               <option value="">— None —</option>
               {% for p in presets %}
-                <option value="{{ p.id }}">{{ p.name }}</option>
+                <option value="{{ p.id }}" data-ids='[ {% for r in p.resources %}{{ r.id }}{% if not loop.last %}, {% endif %}{% endfor %} ]'>{{ p.name }}</option>
               {% endfor %}
             </select>
 
@@ -233,19 +244,15 @@
 
       <div style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #2d3f4d;">
         <button type="button" class="btn btn-secondary" onclick="closeCreateEventForm()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Create Event</button>
+        <button type="submit" class="btn btn-primary">Create</button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
-  // mapping of preset_id -> [resource_id,...]
-  const PRESETS = {
-    {% for p in presets %}
-      "{{ p.id }}": [ {% for r in p.resources %} {{ r.id }} {% if not loop.last %}, {% endif %}{% endfor %} ]{% if not loop.last %}, {% endif %}
-    {% endfor %}
-  };
+  // PRESETS: data is stored on each <option> as a data-ids attribute to keep this script valid JS
+  // (the preset -> resource-id mapping is read from the selected option at runtime)
 
   let selectedResourceIds = new Set();
 
@@ -257,8 +264,8 @@
     // clear temporary UI state when closing
     selectedResourceIds.clear();
     document.getElementById('selectedResources').innerHTML = '';
-    // remove any hidden inputs named resource_ids
-    document.querySelectorAll('input[name="resource_ids"][type="hidden"]').forEach(n => n.remove());
+    // remove any hidden inputs named resource_ids inside the create-event form
+    document.querySelectorAll('#createEventModal input[name="resource_ids"][type="hidden"]').forEach(n => n.remove());
     document.getElementById('presetSelect').value = '';
     document.getElementById('createEventModal').style.display = 'none';
   }
@@ -299,13 +306,14 @@
 
     document.getElementById('selectedResources').appendChild(badge);
 
-    // hidden input so Flask receives resource_ids
+    // hidden input so Flask receives resource_ids (attach to the create-event form)
     const hidden = document.createElement('input');
     hidden.type = 'hidden';
     hidden.name = 'resource_ids';
     hidden.value = numericId;
     hidden.dataset.for = `res-${numericId}`;
-    document.querySelector('form').appendChild(hidden);
+    const createForm = document.querySelector('#createEventModal form');
+    if (createForm) createForm.appendChild(hidden);
   }
 
   function removeSelectedResource(id) {
@@ -313,21 +321,33 @@
     const badge = document.querySelector(`#selectedResources span[data-id='${id}']`);
     if (badge) badge.remove();
     // remove hidden input
-    document.querySelectorAll(`input[name="resource_ids"][value="${id}"]`).forEach(n => n.remove());
+    document.querySelectorAll(`#createEventModal input[name=\"resource_ids\"][value=\"${id}\"]`).forEach(n => n.remove());
   }
 
   function applyPreset(presetId) {
     // clear current selections
     selectedResourceIds = new Set();
     document.getElementById('selectedResources').innerHTML = '';
-    document.querySelectorAll('input[name="resource_ids"][type="hidden"]').forEach(n => n.remove());
+    document.querySelectorAll('#createEventModal input[name="resource_ids"][type="hidden"]').forEach(n => n.remove());
 
     if (!presetId) return;
-    const list = PRESETS[presetId] || [];
-    list.forEach(rid => {
-      // find item_code for display (from resource-row) if available
+
+    const opt = document.querySelector(`#presetSelect option[value='${presetId}']`);
+    if (!opt) return;
+
+    // option.dataset.ids is like: "[1, 2, 3]"
+    let idsData = opt.dataset.ids || '[]';
+    let ids = [];
+    try {
+      ids = JSON.parse(idsData);
+    } catch (err) {
+      // fallback to comma-separated parsing
+      ids = idsData.replace(/[^0-9,]/g, '').split(',').filter(Boolean).map(s => s.trim());
+    }
+
+    ids.forEach(rid => {
       const row = document.querySelector(`.resource-row[data-id='${rid}']`);
-      const code = row ? row.textContent.trim().split('—')[0].trim() : rid;
+      const code = row ? row.textContent.trim().split('—')[0].trim() : String(rid);
       addSelectedResource(rid, code);
     });
   }
